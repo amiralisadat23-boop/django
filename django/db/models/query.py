@@ -2428,10 +2428,17 @@ class QuerySet(AltersData):
             )
 
     def _clear_ordering_in_combined_queries(self, cloned_query, other_qs):
-        combined_queries = [self.query]
-        for qs in other_qs:
+        combined_queries = []
+        for qs in (self, *other_qs):
             query = qs.query.clone()
-            query.clear_ordering(force=False, clear_default=False)
+            if not query.is_sliced:
+                # Ordering of unsliced combined queries is discarded in favor
+                # of the outer query's ordering. Keeping it would also produce
+                # invalid SQL on Oracle, which doesn't allow a bare ORDER BY
+                # in parenthesized compound subqueries.
+                query.default_ordering = False
+            if qs is not self:
+                query.clear_ordering(force=False, clear_default=False)
             combined_queries.append(query)
         cloned_query.combined_queries = tuple(combined_queries)
 
