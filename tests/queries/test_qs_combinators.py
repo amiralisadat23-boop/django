@@ -478,6 +478,51 @@ class QuerySetSetOperationTests(TestCase):
             with self.subTest(combinator=combined.query.combinator):
                 self.assertSequenceEqual(list(combined), [r2, r1])
 
+    def test_union_default_ordering_by_own_column(self):
+        note_b = Note.objects.create(note="n2", misc="m2")
+        note_a = Note.objects.create(note="n1", misc="m1")
+        qs = Note.objects.all()
+        self.assertSequenceEqual(qs.union(qs), [note_a, note_b])
+
+    def _create_rankings(self):
+        note = Note.objects.create(note="n1", misc="m1")
+        extra = ExtraInfo.objects.create(info="e1", note=note)
+        author_b = Author.objects.create(name="b", num=1, extra=extra)
+        author_a = Author.objects.create(name="a", num=2, extra=extra)
+        return (
+            Ranking.objects.create(rank=1, author=author_b),
+            Ranking.objects.create(rank=2, author=author_a),
+            Ranking.objects.create(rank=3, author=author_b),
+        )
+
+    def test_union_default_ordering_by_related_field(self):
+        r1, r2, _ = self._create_rankings()
+        qs1 = Ranking.objects.filter(rank__lte=2).order_by()
+        qs2 = Ranking.objects.filter(rank=2).order_by()
+        qs = qs1.union(qs2)
+        # Compiling the query doesn't alter it.
+        str(qs.query)
+        self.assertSequenceEqual(qs, [r2, r1])
+
+    @skipUnlessDBFeature("supports_select_difference")
+    def test_difference_default_ordering_by_related_field(self):
+        r1, _, _ = self._create_rankings()
+        qs1 = Ranking.objects.order_by()
+        qs2 = Ranking.objects.filter(rank__gte=2).order_by()
+        self.assertSequenceEqual(qs1.difference(qs2), [r1])
+
+    def test_union_order_by_related_field(self):
+        r1, r2, r3 = self._create_rankings()
+        qs = Ranking.objects.order_by().union(Ranking.objects.order_by())
+        self.assertSequenceEqual(
+            qs.order_by("-author__name", "rank"),
+            [r1, r3, r2],
+        )
+        self.assertSequenceEqual(
+            qs.order_by("author__name", "-rank"),
+            [r2, r3, r1],
+        )
+
     def test_union_multiple_models_with_values_list_and_order(self):
         reserved_name = ReservedName.objects.create(name="rn1", order=0)
         qs1 = Celebrity.objects.all()
