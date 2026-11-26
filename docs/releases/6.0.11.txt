@@ -6,7 +6,7 @@ Django 6.0.11 release notes
 
 Django 6.0.11 fixes two security issues with severity "high", one security
 issue with severity "moderate", four security issues with severity "low", and
-one bug in 6.0.10.
+several bugs in 6.0.10.
 
 Bugfixes
 ========
@@ -16,3 +16,7 @@ Bugfixes
   :exc:`~django.core.exceptions.ValidationError` by the
   :class:`~django.contrib.gis.forms.GeometryField` form field
   (:ticket:`37491`).
+
+* Fixed a regression in Django 6.1.2 where ``HttpRequest.accepted_types``
+  raised an exception when the ``Accept`` header contained a media range that
+  could not be parsed (:ticket:`37538`).
